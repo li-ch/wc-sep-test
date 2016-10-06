@@ -8,11 +8,12 @@ using namespace std;
 using namespace amber;
 using namespace amber::rdma;
 
-const int max_packet_size = (1 << 21);
-const int SND_NUM = 1e2;
+const int max_packet_size = (1 << 22);
+const int SND_NUM = 1e5;
 const int CLI_NUM = 2;
 const int SVR_NUM = 2;
 const int QP_NUM = 2;
+const int SERVER_SLEEP = 600;
 
 
 const char* svr_ip[] = {"172.16.18.197", "172.16.18.198"};
@@ -57,7 +58,7 @@ void Client()
         cli.Send(f);
     }
 
-    sleep(10);
+    sleep(3);
 }
 
 int num;
@@ -86,8 +87,8 @@ void Server()
 	    puts("Server Accept Success");
         }
     }
-
-    sleep(10);
+    puts("Sleeps");
+    sleep(SERVER_SLEEP);
 }
 
 int main(int argc, char* argv[])
