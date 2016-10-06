@@ -16,5 +16,3 @@ test: rdma.o buf_list.o test.cpp
 clean:
 	rm -f *.o test
 
-
-gprof test gmon.out > test.gprof
