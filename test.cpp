@@ -4,11 +4,12 @@
 #include <sys/time.h>
 #include <unistd.h> 
 #include "buf_list.h"
+#include <chrono>
 using namespace std;
 using namespace amber;
 using namespace amber::rdma;
 
-const int max_packet_size = (1 << 22);
+const int max_packet_size = (1 << 20);
 const int SND_NUM = 1e5;
 const int CLI_NUM = 2;
 const int SVR_NUM = 2;
@@ -37,27 +38,35 @@ void Client()
     sleep(3);
 
     puts("Client Start Sending");
+    auto t1 = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < SVR_NUM * SND_NUM * QP_NUM; ++i)
     {
         shared_ptr<RDMA_Message> f;
         auto buf = pool.GetFreeBuf();
-        if (buf == nullptr)
+	if (buf == nullptr)
         {
             --i;
             continue;
         }
+	auto t2 = std::chrono::high_resolution_clock::now();
+ 	auto diff = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1);
+	if (diff.count()>0) printf("Mem aquired in %ld us\n",diff.count());
+	t1 = t2;
+	//puts("Acquired Mem");
         f.reset((RDMA_Message*)buf, [&pool](RDMA_Message* msg){pool.FreeBuf((char*)msg);});
         f.get()->idx = i % (QP_NUM * SVR_NUM);
         f.get()->data_len = max_packet_size;
         sprintf(f.get()->msg, "Test rdma message seq[%d]", i);
-	puts("Client Message");
-        if ((i + 1) % (SND_NUM / 5) == 0)
+	//puts("Client Message");
+	if ((i + 1) % (SND_NUM / 5) == 0)
         {
             printf("Send Msg %d %d\n", f->idx, i);
         }
         cli.Send(f);
+	puts("Msg Sent");
     }
 
+    puts("Client done");
     sleep(3);
 }
 

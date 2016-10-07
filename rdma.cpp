@@ -3,6 +3,7 @@
 #include <sched.h>  
 #include <pthread.h>
 #include <sys/time.h>
+#include <ctime>
 
 namespace amber {
 namespace rdma {
@@ -130,7 +131,6 @@ void RDMA_Client::Sending()
     {
         throw std::system_error(errno, std::system_category());
     }
-
 
     while (m_Runing)
     {
