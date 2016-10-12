@@ -16,6 +16,7 @@
 
 #include "rdma_message.h"
 #include "buf_list.h"
+#include "safe_queue.h"
 
 namespace amber {
 namespace rdma {
@@ -54,7 +55,7 @@ protected:
 class RDMA_Client : public RDMA_Device
 {
 private:
-    std::queue<std::shared_ptr<RDMA_Message>>* m_queue;
+    SafeQueue<std::shared_ptr<RDMA_Message>>* m_queue;
     bool* m_sending;
     std::mutex* m_mutex;
 
@@ -64,8 +65,8 @@ private:
 public:
     RDMA_Client(int max_svr_num);
     ~RDMA_Client();
-    void Connect(const std::string& host, const std::string& port, void* buffer, size_t length);
-    void Send(std::shared_ptr<RDMA_Message> buffer);
+    int Connect(const std::string& host, const std::string& port, void* buffer, size_t length);
+    void Send(std::shared_ptr<RDMA_Message> buffer, int idx = -1);
     void Stop();
 };
 
@@ -92,7 +93,7 @@ private:
 public:
     RDMA_Server(int max_client_num, int max_qp_num, const HandleMsg& Handle);
     ~RDMA_Server();
-    void Listen(const std::string& port, int size);
+    int Listen(const std::string& port, int blk_size, int queue_size = 500);
     void Accept(int idx);
     void Stop();
 };

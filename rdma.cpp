@@ -3,7 +3,6 @@
 #include <sched.h>  
 #include <pthread.h>
 #include <sys/time.h>
-#include <ctime>
 
 namespace amber {
 namespace rdma {
@@ -83,7 +82,7 @@ void RDMA_Device::RegistBuffer(int idx, void* buffer, int32_t length)
 RDMA_Client::RDMA_Client(int max_svr_num) 
     : RDMA_Device(max_svr_num)
 {
-    m_queue = new std::queue<std::shared_ptr<RDMA_Message>>[max_svr_num];
+    m_queue = new SafeQueue<std::shared_ptr<RDMA_Message>>[max_svr_num];
     m_thd = new std::thread(&RDMA_Client::Sending, this);
     m_sending = new bool[max_svr_num];
     m_mutex = new std::mutex[max_svr_num];
@@ -104,7 +103,7 @@ RDMA_Client::~RDMA_Client()
     delete [] m_mutex;
 }
 
-void RDMA_Client::Connect(const std::string& host, const std::string& port, void* buffer, size_t length)
+int RDMA_Client::Connect(const std::string& host, const std::string& port, void* buffer, size_t length)
 {
     auto remote_id = ResolveAddress(const_cast<char*>(port.c_str()), const_cast<char*>(host.c_str()));
     if (rdma_connect(remote_id, nullptr)) 
@@ -114,7 +113,7 @@ void RDMA_Client::Connect(const std::string& host, const std::string& port, void
     }
     m_remote_info[m_sz].remote_cm_id = remote_id;
     RegistBuffer(m_sz, buffer, length);
-    ++m_sz;
+    return m_sz++;
     /*
     auto addr = rdma_get_local_addr(remote_id);
     printf("IP[%s], Port[%d]\n", inet_ntoa(((sockaddr_in *)addr)->sin_addr), ((sockaddr_in *)addr)->sin_port);
@@ -132,6 +131,7 @@ void RDMA_Client::Sending()
         throw std::system_error(errno, std::system_category());
     }
 
+
     while (m_Runing)
     {
         for (i = 0; i < m_sz; ++i)
@@ -146,12 +146,12 @@ void RDMA_Client::Sending()
             }
             else
             {
-                m_mutex[i].lock();
-                if (!m_queue[i].empty())
+                //m_mutex[i].lock();
+                if (!m_queue[i].Empty())
                 {
-                    auto buffer = std::move(m_queue[i].front());
-                    m_queue[i].pop();
-                    m_mutex[i].unlock();
+                    auto buffer = std::move(m_queue[i].Front());
+                    m_queue[i].Pop();
+                    //m_mutex[i].unlock();
                     if (rdma_post_send(m_remote_info[i].remote_cm_id, nullptr, (void*)buffer.get(), buffer.get()->data_len + sizeof(RDMA_Message), m_remote_info[i].mr, i))
                     {
                         throw std::system_error(errno, std::system_category());
@@ -159,8 +159,8 @@ void RDMA_Client::Sending()
                     m_sending[i] = true;
                     m_remote_info[i].ptr = std::move(buffer);
                 }
-                else
-                    m_mutex[i].unlock();
+                //else
+                //    m_mutex[i].unlock();
             }
         }
     }
@@ -172,12 +172,11 @@ void RDMA_Client::Stop()
     m_thd->join();
 }
 
-void RDMA_Client::Send(std::shared_ptr<RDMA_Message> buffer)
+void RDMA_Client::Send(std::shared_ptr<RDMA_Message> buffer, int idx)
 {
-    int idx = buffer.get()->idx;
-    m_mutex[idx].lock();
-    m_queue[idx].push(buffer);
-    m_mutex[idx].unlock();
+    //m_mutex[idx].lock();
+    m_queue[idx].Push(buffer);
+    //m_mutex[idx].unlock();
 }
 
 //* RDMA Server 
@@ -202,7 +201,7 @@ RDMA_Server::~RDMA_Server()
     delete [] m_local_info;
 }
 
-void RDMA_Server::Listen(const std::string& port, int size)
+int RDMA_Server::Listen(const std::string& port, int blk_size, int queue_size)
 {
     m_local_info[m_local_info_sz].local_cm_id = ResolveAddress(const_cast<char*>(port.c_str()), (char*)nullptr);
     if (rdma_listen(m_local_info[m_local_info_sz].local_cm_id, 100)) 
@@ -210,8 +209,8 @@ void RDMA_Server::Listen(const std::string& port, int size)
         rdma_destroy_ep(m_local_info[m_local_info_sz].local_cm_id);
         throw std::system_error(errno, std::system_category());
     }
-    m_local_info[m_local_info_sz].bufList = new BufferList(size, 500);
-    ++m_local_info_sz;
+    m_local_info[m_local_info_sz].bufList = new BufferList(blk_size, queue_size);
+    return m_local_info_sz++;
 }
 
 void RDMA_Server::Accept(int idx)
