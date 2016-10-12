@@ -82,7 +82,7 @@ void RDMA_Device::RegistBuffer(int idx, void* buffer, int32_t length)
 RDMA_Client::RDMA_Client(int max_svr_num) 
     : RDMA_Device(max_svr_num)
 {
-    m_queue = new SafeQueue<std::shared_ptr<RDMA_Message>>[max_svr_num];
+    m_queue = new LockfreeQueue<std::shared_ptr<RDMA_Message>>[max_svr_num];
     m_thd = new std::thread(&RDMA_Client::Sending, this);
     m_sending = new bool[max_svr_num];
     m_mutex = new std::mutex[max_svr_num];
