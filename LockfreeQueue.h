@@ -27,7 +27,7 @@ struct LockfreeQueue {
   // Also, note that the number of usable slots in the queue at any
   // given time is actually (size-1), so if you start with an empty queue,
   // isFull() will return true after size-1 insertions.
-  explicit LockfreeQueue(uint32_t size)
+  explicit LockfreeQueue(uint32_t size = 500)
     : size_(size)
     , records_(static_cast<T*>(std::malloc(sizeof(T) * size)))
     , readIndex_(0)
@@ -132,6 +132,10 @@ struct LockfreeQueue {
   bool isEmpty() const {
     return readIndex_.load(std::memory_order_acquire) ==
         writeIndex_.load(std::memory_order_acquire);
+  }
+
+  book Empty {
+    return isEmpty();
   }
 
   bool isFull() const {
