@@ -134,7 +134,7 @@ struct LockfreeQueue {
         writeIndex_.load(std::memory_order_acquire);
   }
 
-  bool Empty {
+  bool Empty() {
     return isEmpty();
   }
 
