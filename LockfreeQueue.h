@@ -108,7 +108,7 @@ struct LockfreeQueue {
     return &records_[currentRead];
   }
 
-  T& Front() {
+  T* Front() {
     return frontPtr();
   }
 

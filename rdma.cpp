@@ -149,7 +149,7 @@ void RDMA_Client::Sending()
                 //m_mutex[i].lock();
                 if (!m_queue[i].Empty())
                 {
-                    auto buffer = std::move(m_queue[i].Front());
+                    auto buffer = std::move(*m_queue[i].Front());
                     m_queue[i].Pop();
                     //m_mutex[i].unlock();
                     if (rdma_post_send(m_remote_info[i].remote_cm_id, nullptr, (void*)buffer.get(), buffer.get()->data_len + sizeof(RDMA_Message), m_remote_info[i].mr, i))
