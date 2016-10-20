@@ -2,7 +2,7 @@
 
 CFLAGS 	:= -Wall -Werror -g -pg -std=c++11 -O0
 LD	:= g++
-LDFLAGS	:= ${LDFLAGS} -lrdmacm -libverbs
+LDFLAGS	:= ${LDFLAGS} -lrdmacm -libverbs 
 
 buf_list.o: buf_list.cpp
 	${LD} -o $@ $^ -c ${CFLAGS} ${LDFLAGS}

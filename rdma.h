@@ -16,8 +16,8 @@
 
 #include "rdma_message.h"
 #include "buf_list.h"
-//#include "safe_queue.h"
-#include "LockfreeQueue.h"
+#include "safe_queue.h"
+
 namespace amber {
 namespace rdma {
 
@@ -55,7 +55,7 @@ protected:
 class RDMA_Client : public RDMA_Device
 {
 private:
-    LockfreeQueue<std::shared_ptr<RDMA_Message>>* m_queue;
+    SafeQueue<std::shared_ptr<RDMA_Message>>* m_queue;
     bool* m_sending;
     std::mutex* m_mutex;
 

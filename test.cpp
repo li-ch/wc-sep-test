@@ -9,17 +9,17 @@ using namespace std;
 using namespace amber;
 using namespace amber::rdma;
 
-const int max_packet_size = (1 << 21);
+const int max_packet_size = (1 << 20);
 const int SND_NUM = 1e5;
-const int CLI_NUM = 3;
-const int SVR_NUM = 1;
+const int CLI_NUM = 2;
+const int SVR_NUM = 2;
 const int QP_NUM = 2;
 const int SERVER_SLEEP = 600;
 
 
-const char* svr_ip[] = {"172.16.18.197", "172.16.18.198"};
-const char* svr_port[] = {"54321", "43210"};
-const char* cli_ip[] = {"172.16.18.207", "172.16.18.205", "172.16.18.198"};
+const char* svr_ip[] = {"172.16.18.197","172.16.18.198"};//{"100.88.65.7" ,"100.88.65.8"};
+const char* svr_port[] = {"51234", "53214"};
+const char* cli_ip[] = {"172.16.18.205","172.16.18.207"};//{"100.88.65.9" ,"100.88.65.10"}; 
 
 int sz;
 
@@ -28,14 +28,15 @@ void Client()
 {
     RDMA_Client cli(SVR_NUM * QP_NUM);
     BufferList* pool[SVR_NUM * QP_NUM];
-    for (int i = 0; i < SVR_NUM; ++i)
+    for (int i = 0; i < QP_NUM; ++i)
     {
-        for (int j = 0; j < QP_NUM; ++j)
+        for (int j = 0; j < SVR_NUM; ++j)
 	{
 	    int idx;
 	    pool[idx = i * SVR_NUM + j] = new BufferList(sizeof(RDMA_Message) + max_packet_size, 200);
-            cli.Connect(svr_ip[i], svr_port[j], (void *)pool[idx]->Head(), pool[idx]->Capcity());
+            cli.Connect(svr_ip[j], svr_port[i], (void *)pool[idx]->Head(), pool[idx]->Capcity());
 	    puts("Client Connect Success");
+	    printf("pool[idx = %d]\n", idx);
 	}
     }
 

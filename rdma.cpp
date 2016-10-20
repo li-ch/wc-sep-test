@@ -3,6 +3,8 @@
 #include <sched.h>  
 #include <pthread.h>
 #include <sys/time.h>
+#include <chrono>
+#include <stdlib.h>
 
 namespace amber {
 namespace rdma {
@@ -60,13 +62,18 @@ rdma_cm_id* RDMA_Device::ResolveAddress(char* port, char* host)
 
 bool RDMA_Device::PollCQ(ibv_cq* cq)
 {
-    ibv_wc wc;
-    int ret = ibv_poll_cq(cq, 1, &wc);
+    ibv_wc wc[32];
+    int ret = ibv_poll_cq(cq, 32, wc);
     if (ret < 0)
     {
         throw std::system_error(errno, std::system_category());
     }
-    return ret > 0 && wc.status == IBV_WC_SUCCESS;
+    bool wc_success = true;
+    for (int w=0; w<ret; ++w){
+		wc_success = wc_success && (wc[w].status == IBV_WC_SUCCESS);
+    }	
+
+    return ret > 0 && wc_success;
 }
 
 void RDMA_Device::RegistBuffer(int idx, void* buffer, int32_t length)
@@ -82,7 +89,7 @@ void RDMA_Device::RegistBuffer(int idx, void* buffer, int32_t length)
 RDMA_Client::RDMA_Client(int max_svr_num) 
     : RDMA_Device(max_svr_num)
 {
-    m_queue = new LockfreeQueue<std::shared_ptr<RDMA_Message>>[max_svr_num];
+    m_queue = new SafeQueue<std::shared_ptr<RDMA_Message>>[max_svr_num];
     m_thd = new std::thread(&RDMA_Client::Sending, this);
     m_sending = new bool[max_svr_num];
     m_mutex = new std::mutex[max_svr_num];
@@ -149,7 +156,7 @@ void RDMA_Client::Sending()
                 //m_mutex[i].lock();
                 if (!m_queue[i].Empty())
                 {
-                    auto buffer = std::move(*m_queue[i].Front());
+                    auto buffer = std::move(m_queue[i].Front());
                     m_queue[i].Pop();
                     //m_mutex[i].unlock();
                     if (rdma_post_send(m_remote_info[i].remote_cm_id, nullptr, (void*)buffer.get(), buffer.get()->data_len + sizeof(RDMA_Message), m_remote_info[i].mr, i))
@@ -266,9 +273,8 @@ void RDMA_Server::Recving(const HandleMsg& Handle)
         throw std::system_error(errno, std::system_category());
     }
     
-
-    //timeval t_start, t_end;
-    //gettimeofday(&t_start, NULL);
+    puts("Server Start Receiving");
+    //auto t1 = std::chrono::high_resolution_clock::now();
     while (m_Runing)
     {
         for (int i = 0; i < m_sz; ++i)
@@ -284,10 +290,14 @@ void RDMA_Server::Recving(const HandleMsg& Handle)
                     data.reset((RDMA_Message*)buf, [this, idx](RDMA_Message* msg){m_local_info[idx].bufList->FreeBuf((char *)msg);});
                     Handle(data);
                     m_remote_info[i].last_buf = m_local_info[idx].bufList->GetFreeBuf();
-                    //gettimeofday(&t_end, NULL);
-                    //printf("spend = %ld\n", (t_end.tv_sec - t_start.tv_sec) * (int)1e6 + (t_end.tv_usec - t_start.tv_usec));
-                    //t_start = t_end;
-                }
+               	    /*auto t2 = std::chrono::high_resolution_clock::now();
+                    auto diff = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1);
+                    if (diff.count()>1000) {
+			printf("Outlier detected in %ld us\n", diff.count());
+			std::system("ethtool -S eth1 | egrep '(r|t)x_pause_duration_prio_0'");
+		    }
+                    t1 = t2;*/
+		}
             }
             else
             {
